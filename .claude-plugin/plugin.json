@@ -1,0 +1,7 @@
+{
+  "name": "llm-router",
+  "description": "Smart LLM routing for Claude Code teams. Automatically picks the best LLM (Claude or Codex) for each subtask, spawns dynamic agent teams from natural language, and enforces safety hooks globally.",
+  "author": {
+    "name": "mjfos"
+  }
+}
