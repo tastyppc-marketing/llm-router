@@ -1,21 +1,15 @@
-# Generated worker output
-tools/claude_stdout.json
-tools/claude_stderr.txt
-tools/claude_last_message.md
-tools/codex_stdout.txt
-tools/codex_stderr.txt
-tools/codex_last_message.md
-tools/gemini_stdout.json
-tools/gemini_stderr.txt
-tools/gemini_last_message.md
+__pycache__/
+*.pyc
+*.pyo
 
-# Captured run artifacts
+tools/*_stdout.json
+tools/*_stdout.txt
+tools/*_stderr.txt
+tools/*_last_message.md
+tools/codex_blog_last_message.md
+
 tools/claude_runs/
 tools/codex_runs/
 tools/gemini_runs/
 tools/failure_mode_flow_runs/
 tools/router_validation_runs/
-
-# Misc generated files
-*.log
-.DS_Store
