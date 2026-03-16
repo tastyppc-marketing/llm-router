@@ -1,24 +1,42 @@
 # llm-router
 
-`llm-router` is a Claude Code plugin/workflow layer for routing work across multiple coding models with explicit role boundaries.
+`llm-router` is a Claude Code plugin/workflow for routing software tasks across Claude Code, Codex, and Gemini by failure mode instead of by model loyalty.
 
-Current routing model:
-- `GI-Mapper` for large-context mapping and decomposition
-- `CC-Diagnostician` for risky logic, architecture, and user-facing clarification wording
-- `CX-Executor` for scoped implementation and test/fix loops
+## What it contains
 
-Core pieces:
-- `agents/` contains the routed role prompts
-- `commands/` contains slash commands such as `/smart-team`, `/router-validate`, and `/router-status`
-- `hooks/` contains repo-safety and async test hooks
-- `skills/` contains the routing skill and kickoff template
-- `tools/` contains the provider wrappers, smoke tests, and validation scripts
+- agent prompts in `agents/`
+- slash commands in `commands/`
+- hook scripts in `hooks/`
+- routing skill docs in `skills/`
+- worker and validation scripts in `tools/`
+- Claude plugin metadata in `.claude-plugin/plugin.json`
 
-Useful local commands:
+## Current routing model
+
+- `GI-Mapper`: repo-wide mapping, ambiguity reduction, and large-context discovery
+- `CC-Diagnostician`: risky logic, architecture, and user-facing clarifications
+- `CX-Executor`: implementation, tests, and tight fix loops
+
+Default handoff:
+
+`GI-Mapper -> CC-Diagnostician -> CX-Executor -> CC-Diagnostician`
+
+## Validation
+
+Run the repo-agnostic checks with:
 
 ```bash
 bash "$HOME/.claude/plugins/llm-router/tools/router_validate.sh" -m all -C "$PWD"
 bash "$HOME/.claude/plugins/llm-router/tools/router_status.sh"
 ```
 
-This repository intentionally excludes local model outputs, validation artifacts, and machine-specific auth/config state. Those remain local to the workstation.
+These validate:
+
+- Bash access for `CC`, `CX`, and `GI`
+- Gemini destructive-command blocking
+- tmux-backed `TeamCreate`, `TaskCreate`, and `TaskUpdate`
+
+## Notes
+
+- Runtime outputs and validation artifacts are intentionally ignored by git.
+- Local environment setup such as Gemini policy files under `~/.gemini/` is not committed here and should be documented separately when needed.
