@@ -36,6 +36,27 @@ These validate:
 - Gemini destructive-command blocking
 - tmux-backed `TeamCreate`, `TaskCreate`, and `TaskUpdate`
 
+## Using From Codex
+
+Codex cannot use Claude slash commands directly, but it can call a bridge script
+that launches an interactive Claude session, runs `/smart-team`, waits for the
+sentinel output, and returns a report.
+
+Example:
+
+```bash
+cd /mnt/c/Dev/HBreplyBot
+bash "$HOME/.claude/plugins/llm-router/tools/codex_smart_team.sh" -C "$PWD" -t 900 \
+  "Resume HBReplyBot from the latest notes, implement the highest-value next slice, run relevant tests, and return real results."
+```
+
+If Claude is not loading the router commands/agents from the plugin directory,
+install the live command surface with:
+
+```bash
+bash "$HOME/.claude/plugins/llm-router/tools/install_claude_surface.sh"
+```
+
 ## Notes
 
 - Runtime outputs and validation artifacts are intentionally ignored by git.

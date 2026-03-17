@@ -10,6 +10,7 @@ tools/codex_blog_last_message.md
 
 tools/claude_runs/
 tools/codex_runs/
+tools/codex_smart_team_runs/
 tools/gemini_runs/
 tools/failure_mode_flow_runs/
 tools/router_validation_runs/
