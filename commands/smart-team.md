@@ -121,8 +121,9 @@ Prompt must require:
 - Never write implementation code directly
 - Start with either `No blocking questions` or `Blocking questions (max 5)` plus proposed defaults
 - If blocked, ask targeted questions; if not blocked, proceed with explicit assumptions
-- If user clarification is needed, send raw blockers plus defaults to `CC-Diagnostician` for wording before asking the user
-- Send completion summary + run result back to lead
+- If user clarification is needed, SendMessage raw blockers plus defaults to CC-Diagnostician for wording before asking the user
+- Send completion summary + run result back to lead; summary must include enough detail for lead to satisfy Step 7 check #5 without re-querying
+- May SendMessage detailed handoff context to the assigned QA and Reviewer agents as an additive note — lead retains exclusive phase initiation via TaskCreate + TaskUpdate
 
 ### `GI-Mapper` contract
 
@@ -131,8 +132,9 @@ Prompt must require:
 - Never write implementation code directly
 - Start with either `No blocking questions` or `Blocking questions (max 5)` plus proposed defaults
 - If blocked, ask targeted questions; if not blocked, proceed with explicit assumptions
-- If user clarification is needed, send raw blockers plus defaults to `CC-Diagnostician` for wording before asking the user
-- Send completion summary + run result back to lead
+- If user clarification is needed, SendMessage raw blockers plus defaults to CC-Diagnostician for wording before asking the user
+- Send completion summary + run result back to lead; summary must include enough detail for lead to satisfy Step 7 check #5 without re-querying
+- May SendMessage detailed handoff context to the assigned QA and Reviewer agents as an additive note — lead retains exclusive phase initiation via TaskCreate + TaskUpdate
 
 ### `CC-Diagnostician` contract
 
@@ -142,16 +144,22 @@ Prompt must require:
 - Start with either `No blocking questions` or `Blocking questions (max 5)` plus proposed defaults
 - If blocked, ask targeted questions; if not blocked, proceed with explicit assumptions
 - If another agent found the blocker, rewrite it into the clearest possible user-facing questions with proposed defaults
-- Send completion summary + run result back to lead
+- Send completion summary + run result back to lead; summary must include enough detail for lead to satisfy Step 7 check #5 without re-querying
 
 ### QA contract
 
-- Run full tests and report pass/fail and key failures.
+- Run full tests and report pass/fail and key failures to lead.
 - Never approve while tests fail.
+- On failure: SendMessage failure details and reproduction steps to lead for re-tasking decision. Lead creates any fix task via TaskCreate + TaskUpdate.
+- May SendMessage supplemental failure context to the implementation agent as an additive note ONLY IF lead has already created and assigned the fix task.
+- May receive additive handoff notes from implementation agents — these are supplemental context, not phase triggers. QA begins work only when lead assigns the task.
 
 ### Reviewer contract
 
-- Review diff with high-confidence findings.
+- Review diff with high-confidence findings and report to lead.
+- On findings requiring remediation: SendMessage findings to lead for re-tasking decision. Lead creates any remediation task via TaskCreate + TaskUpdate.
+- May SendMessage supplemental finding context to the implementation agent as an additive note ONLY IF lead has already created and assigned the remediation task.
+- May receive additive handoff notes from implementation agents — these are supplemental context, not phase triggers. Reviewer begins work only when lead assigns the task.
 
 ## Step 7: hard evidence checks before marking done
 
@@ -163,7 +171,7 @@ Before wrap-up, verify all are true:
    - `~/.claude/plugins/llm-router/tools/gemini_runs/manifest.jsonl`
 4. Each `CC-Diagnostician` task has at least one concrete Claude run artifact in:
    - `~/.claude/plugins/llm-router/tools/claude_runs/manifest.jsonl`
-5. QA and review results received for each completed implementation task.
+5. QA and review results received by lead for each completed implementation task. Lead must hold summaries sufficient to verify this check from agent completion messages alone — no additional round-trips required.
 6. Product verification done (if role was spawned).
 
 ## Step 8: wrap up and cleanup

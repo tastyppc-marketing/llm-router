@@ -59,5 +59,9 @@ bash "$HOME/.claude/plugins/llm-router/tools/install_claude_surface.sh"
 
 ## Notes
 
+- Tool entrypoints under `tools/` keep their existing `.sh` paths, but the orchestration and worker logic now lives in Python-backed controllers alongside thin shell shims.
+- The remaining shell scripts are the hook entrypoints in `hooks/`, which stay shell-native because they are small and rely on shell-style hook exit semantics.
+- Worker subprocess timeouts are safety bounds, not short deadlines. Defaults are intentionally generous, and can be overridden with env vars such as `LLM_ROUTER_TIMEOUT_SEC`, `LLM_ROUTER_CLAUDE_TIMEOUT_SEC`, `LLM_ROUTER_CODEX_TIMEOUT_SEC`, `LLM_ROUTER_GEMINI_TIMEOUT_SEC`, `LLM_ROUTER_FLOW_STEP_TIMEOUT_SEC`, `LLM_ROUTER_VALIDATE_STEP_TIMEOUT_SEC`, and `LLM_ROUTER_TMUX_TIMEOUT_SEC`.
+- Worker wrappers now stamp runs with a shared `LLM_ROUTER_TRACE_ID` and perform bounded retries with exponential backoff for likely transient failures such as timeouts or upstream rate-limit/network issues.
 - Runtime outputs and validation artifacts are intentionally ignored by git.
 - Local environment setup such as Gemini policy files under `~/.gemini/` is not committed here and should be documented separately when needed.
