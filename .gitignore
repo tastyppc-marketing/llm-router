@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 *.pyo
+.first-run-shown
 
 tools/*_stdout.json
 tools/*_stdout.txt
