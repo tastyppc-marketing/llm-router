@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Collaboration runtime artifacts
+.collab/
+
 tools/*_stdout.json
 tools/*_stdout.txt
 tools/*_stderr.txt
