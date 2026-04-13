@@ -403,3 +403,13 @@ def test_conflict_participants():
         assert "claude-code" not in neutrals
 
         db.close()
+
+
+def test_lock_claim_returns_false_when_blocked():
+    with tempfile.TemporaryDirectory() as tmp:
+        db = CollabDB(Path(tmp) / ".collab" / "collab.db")
+        db.lock_claim("src/foo.ts", "codex")
+        result = db.lock_claim("src/foo.ts", "claude-code")
+        assert result is False
+        assert db.lock_owner("src/foo.ts") == "codex"
+        db.close()

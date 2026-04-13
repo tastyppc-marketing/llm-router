@@ -64,6 +64,7 @@ class CollabDB:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA busy_timeout=3000")
+        self._conn.execute("PRAGMA foreign_keys = ON")
         self._init_schema()
 
     def _init_schema(self) -> None:
@@ -182,18 +183,15 @@ class CollabDB:
                 ids_to_mark.append(row["id"])
 
         if not peek and ids_to_mark:
-            for msg_id in ids_to_mark:
-                row = self._conn.execute(
-                    "SELECT read_by FROM messages WHERE id = ?", (msg_id,)
-                ).fetchone()
-                readers = json.loads(row["read_by"])
-                if session_name not in readers:
-                    readers.append(session_name)
+            with self._conn:
+                for entry in unread:
+                    readers = json.loads(entry["read_by"])
+                    if session_name not in readers:
+                        readers.append(session_name)
                     self._conn.execute(
                         "UPDATE messages SET read_by = ? WHERE id = ?",
-                        (json.dumps(readers), msg_id),
+                        (json.dumps(readers), entry["id"]),
                     )
-            self._conn.commit()
 
         return unread
 
@@ -221,28 +219,32 @@ class CollabDB:
     # -- Locks ----------------------------------------------------------
 
     def lock_claim(self, file_path: str, owner: str) -> bool:
-        existing = self.lock_owner(file_path)
-        if existing is not None and existing != owner:
-            return False
-        self._conn.execute(
-            "INSERT INTO locks (file_path, owner) VALUES (?, ?) "
-            "ON CONFLICT(file_path) DO UPDATE SET owner=excluded.owner, "
-            "claimed_at=strftime('%Y-%m-%dT%H:%M:%S', 'now')",
-            (file_path, owner),
+        cursor = self._conn.execute(
+            "INSERT INTO locks (file_path, owner) "
+            "SELECT ?, ? WHERE NOT EXISTS "
+            "(SELECT 1 FROM locks WHERE file_path = ? AND owner != ?)",
+            (file_path, owner, file_path, owner),
         )
         self._conn.commit()
+        if cursor.rowcount == 0:
+            # Either someone else holds it, or we already own it (idempotent)
+            existing = self.lock_owner(file_path)
+            if existing == owner:
+                return True
+            return False
         return True
 
     def lock_release(self, file_path: str, requester: str, *, force: bool = False) -> bool:
         if force:
             self._conn.execute("DELETE FROM locks WHERE file_path = ?", (file_path,))
-        else:
-            self._conn.execute(
-                "DELETE FROM locks WHERE file_path = ? AND owner = ?",
-                (file_path, requester),
-            )
+            self._conn.commit()
+            return True
+        cursor = self._conn.execute(
+            "DELETE FROM locks WHERE file_path = ? AND owner = ?",
+            (file_path, requester),
+        )
         self._conn.commit()
-        return True
+        return cursor.rowcount > 0
 
     def lock_release_all(self, owner: str) -> None:
         self._conn.execute("DELETE FROM locks WHERE owner = ?", (owner,))
