@@ -11,6 +11,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/collab_lock_check.sh\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -22,6 +32,16 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-tests-async.sh\"",
             "async": true,
             "timeout": 300
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/collab_check.sh\"",
+            "timeout": 5
           }
         ]
       }
