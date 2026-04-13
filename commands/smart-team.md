@@ -8,6 +8,144 @@ allowed-tools: [Read, Glob, Grep, Bash, Agent, TeamCreate, TeamDelete, TaskCreat
 
 $ARGUMENTS
 
+## Collaboration Mode
+
+When the user's input contains `--collaborate`, route to collaboration mode instead of the normal smart-team flow. Recognize three variants:
+
+| Flag | Meaning |
+|---|---|
+| `--collaborate` | Cold start (default) |
+| `--collaborate --connect` | Hot connect to existing sessions |
+| `--collaborate --end` | End collaboration |
+
+### tmux preflight
+
+Same requirement as Step 0 — you must be inside tmux. Run:
+
+```bash
+echo "TMUX=${TMUX:-}"; tmux list-sessions
+```
+
+If not inside tmux, tell the user with a friendly nudge:
+
+> Hey — collaboration mode needs tmux so we can manage panes for each partner. Start a tmux session first and re-run `/smart-team --collaborate`.
+
+Do not proceed until tmux is confirmed.
+
+### Cold start flow (`--collaborate`)
+
+1. **Check tmux availability** — run the preflight above.
+
+2. **Ask setup questions** — gather the following before doing anything else:
+   - What are we building?
+   - Which LLMs to bring in? (e.g. codex, gemini, claude)
+   - What role does each LLM play?
+   - Conversation mode: `live` (continuous streaming) or `event-driven` (message-based)?
+   - Conflict resolution strategy per session: `user` (human decides) or `autonomous` (LLM decides)?
+   - Purge settings: threshold token count and max kept messages, or accept defaults (`20` threshold, `5` kept)?
+
+3. **Initialize the collaboration workspace** — run from the project root:
+
+   ```bash
+   collab init
+   ```
+
+4. **Join the current session** to the collaboration:
+
+   ```bash
+   collab join
+   ```
+
+5. **Spawn each partner session** in a new tmux pane. For every partner LLM, open a pane and launch its CLI with a startup prompt instructing it to join the collaboration:
+
+   ```bash
+   # Example for codex partner
+   tmux split-window -h "codex --prompt 'You are a collaboration partner. Run: collab join — then follow instructions from the collaboration dashboard.'"
+
+   # Example for gemini partner
+   tmux new-window "gemini --prompt 'You are a collaboration partner. Run: collab join — then follow instructions from the collaboration dashboard.'"
+   ```
+
+   Adapt the CLI invocation and prompt for each partner's actual CLI interface. The startup prompt must include the instruction to run `collab join`.
+
+6. **Set `COLLAB_SESSION_NAME` env var** in each spawned pane so hooks can identify which collaboration session owns the pane:
+
+   ```bash
+   tmux send-keys -t <pane-id> "export COLLAB_SESSION_NAME='<session-name>'" Enter
+   ```
+
+7. **Open the TUI dashboard** in a dedicated pane:
+
+   ```bash
+   tmux split-window -v "collab ui"
+   ```
+
+### Hot connect flow (`--collaborate --connect`)
+
+1. **Bootstrap if needed** — if `.collab/` does not exist in the project root, run:
+
+   ```bash
+   collab init
+   ```
+
+2. **Detect running sessions** — auto-detect active tmux panes that look like LLM sessions, or ask the user which sessions to connect.
+
+3. **Join each session** to the collaboration:
+
+   ```bash
+   collab join
+   ```
+
+   Run this in each target pane.
+
+4. **Set env vars and install hooks** — for each connected pane:
+
+   ```bash
+   tmux send-keys -t <pane-id> "export COLLAB_SESSION_NAME='<session-name>'" Enter
+   ```
+
+5. **Open the TUI dashboard**:
+
+   ```bash
+   tmux split-window -v "collab ui"
+   ```
+
+### End flow (`--collaborate --end`)
+
+1. **End the collaboration**:
+
+   ```bash
+   collab end
+   ```
+
+2. **Clean up hooks and env vars** — unset `COLLAB_SESSION_NAME` in every connected pane:
+
+   ```bash
+   tmux send-keys -t <pane-id> "unset COLLAB_SESSION_NAME" Enter
+   ```
+
+3. **Close the TUI pane** — identify the pane running `collab ui` and kill it:
+
+   ```bash
+   tmux kill-pane -t <tui-pane-id>
+   ```
+
+### Subteam isolation rule
+
+Any standard `/smart-team` invocation (without `--collaborate`) that runs inside a session currently participating in a collaboration MUST spawn its agents in a **separate tmux session** named `collab-<session-name>-team`. Do not mix subteam panes with collaboration panes.
+
+```bash
+tmux new-session -d -s "collab-${COLLAB_SESSION_NAME}-team"
+```
+
+When a subteam is spawned, the collaboration dashboard must show a notification:
+
+> Subteam started for session `<session-name>`. Attach with: `tmux attach -t collab-<session-name>-team`
+
+When the subteam finishes, the dashboard must show a follow-up notification:
+
+> Subteam for session `<session-name>` has completed.
+
 ## Non-Negotiables
 
 1. You are the orchestrator, not the implementer.
