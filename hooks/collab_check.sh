@@ -22,7 +22,7 @@ if [[ -f "$DEBOUNCE_FILE" ]]; then
         exit 0
     fi
 fi
-touch "$DEBOUNCE_FILE"
+touch "$DEBOUNCE_FILE" 2>/dev/null || true
 
 # Check for new messages
 output=$("$COLLAB_CLI" check --name "$SESSION_NAME" --format inject 2>/dev/null || true)

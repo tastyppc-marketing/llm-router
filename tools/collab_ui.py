@@ -23,6 +23,7 @@ except ImportError:
 
 sys.path.insert(0, str(SCRIPT_DIR))
 from collab_db import CollabDB
+from rich.markup import escape
 
 
 def find_collab_db() -> Path:
@@ -87,8 +88,8 @@ def format_rich_message(m: dict) -> str:
     if len(timestamp) > 10:
         timestamp = timestamp[11:]  # Show time only
 
-    header = f"[{color}][#{m['id']} {sender}][/{color}] {icon} [{timestamp}]{reply}"
-    return f"{header}\n{m['content']}\n"
+    header = f"[{color}][#{m['id']} {escape(sender)}][/{color}] {icon} [{timestamp}]{reply}"
+    return f"{header}\n{escape(m['content'])}\n"
 
 
 # -- Widgets ------------------------------------------------------------
@@ -233,20 +234,22 @@ class CollabDashboard(App):
         db.close()
 
     def _poll_updates(self) -> None:
-        db = CollabDB(self._db_path)
+        try:
+            db = CollabDB(self._db_path)
 
-        # Check for new messages since last known ID
-        all_msgs = db.message_log()
-        new_msgs = [m for m in all_msgs if m["id"] > self._last_msg_id]
+            # Check for new messages since last known ID
+            new_msgs = db.message_log(since_id=self._last_msg_id)
 
-        if new_msgs:
-            log_widget = self.query_one("#message-log", RichLog)
-            for m in new_msgs:
-                log_widget.write(format_rich_message(m))
-                self._last_msg_id = max(self._last_msg_id, m["id"])
+            if new_msgs:
+                log_widget = self.query_one("#message-log", RichLog)
+                for m in new_msgs:
+                    log_widget.write(format_rich_message(m))
+                    self._last_msg_id = max(self._last_msg_id, m["id"])
 
-        self._refresh_sidebar(db)
-        db.close()
+            self._refresh_sidebar(db)
+            db.close()
+        except Exception:
+            pass
 
     def _refresh_sidebar(self, db: CollabDB) -> None:
         sessions = db.session_list()

@@ -18,8 +18,8 @@ def usage() -> str:
         "  join --name NAME [--role R]   Join the collaboration\n"
         "  leave --name NAME             Leave the collaboration\n"
         "  status                        Show sessions, locks, unread count\n"
-        "  send [--name N] [--type T] [--reply-to ID] MESSAGE\n"
-        "  check [--name N] [--peek] [--format inject]\n"
+        "  send --name NAME [--type T] [--reply-to ID] MESSAGE\n"
+        "  check --name NAME [--peek] [--format inject]\n"
         "  log [--last N]                Show conversation history\n"
         "  lock FILE --name NAME         Claim a file lock\n"
         "  unlock FILE --name NAME [--force]\n"
@@ -165,7 +165,11 @@ def cmd_send(argv: list[str]) -> int:
             msg_type = argv[i]
         elif argv[i] == "--reply-to" and i + 1 < len(argv):
             i += 1
-            reply_to = int(argv[i])
+            try:
+                reply_to = int(argv[i])
+            except ValueError:
+                print("Error: --reply-to must be an integer.", file=sys.stderr)
+                return 1
         else:
             parts.append(argv[i])
         i += 1
@@ -226,7 +230,11 @@ def cmd_log(argv: list[str]) -> int:
     while i < len(argv):
         if argv[i] == "--last" and i + 1 < len(argv):
             i += 1
-            last = int(argv[i])
+            try:
+                last = int(argv[i])
+            except ValueError:
+                print("Error: --last must be an integer.", file=sys.stderr)
+                return 1
         i += 1
     db = open_db()
     messages = db.message_log(last=last)
@@ -362,7 +370,11 @@ def cmd_purge(argv: list[str]) -> int:
     while i < len(argv):
         if argv[i] == "--count" and i + 1 < len(argv):
             i += 1
-            count = int(argv[i])
+            try:
+                count = int(argv[i])
+            except ValueError:
+                print("Error: --count must be an integer.", file=sys.stderr)
+                return 1
         i += 1
     db = open_db()
     purged = db.purge(count=count)

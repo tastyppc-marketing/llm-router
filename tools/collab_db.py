@@ -195,7 +195,22 @@ class CollabDB:
 
         return unread
 
-    def message_log(self, *, last: int | None = None) -> list[dict]:
+    def message_log(self, *, last: int | None = None, since_id: int | None = None) -> list[dict]:
+        if since_id is not None:
+            if last is not None:
+                rows = self._conn.execute(
+                    "SELECT id, sender, type, content, reply_to, created_at "
+                    "FROM messages WHERE archived = 0 AND id > ? "
+                    "ORDER BY id DESC LIMIT ?",
+                    (since_id, last),
+                ).fetchall()
+                return [dict(r) for r in reversed(rows)]
+            rows = self._conn.execute(
+                "SELECT id, sender, type, content, reply_to, created_at "
+                "FROM messages WHERE archived = 0 AND id > ? ORDER BY id",
+                (since_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
         if last is not None:
             rows = self._conn.execute(
                 "SELECT id, sender, type, content, reply_to, created_at "
