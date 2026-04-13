@@ -56,23 +56,35 @@ Do not proceed until tmux is confirmed.
    collab join
    ```
 
-5. **Spawn each partner session** in a new tmux pane. For every partner LLM, open a pane and launch its CLI with a startup prompt instructing it to join the collaboration:
+5. **Spawn each partner session** in a new tmux pane. For every partner LLM, open an empty pane first, then send commands into it. Do NOT pass commands directly to `tmux split-window` — interactive CLIs like codex and gemini need to be started via `send-keys` so you can control the sequence.
+
+   **CRITICAL: Every `tmux send-keys` command MUST end with `C-m` to press Enter.** Without `C-m`, the text is typed but never executed.
 
    ```bash
-   # Example for codex partner
-   tmux split-window -h "codex --prompt 'You are a collaboration partner. Run: collab join — then follow instructions from the collaboration dashboard.'"
+   # Step A: Create an empty pane
+   tmux split-window -h -t collab
 
-   # Example for gemini partner
-   tmux new-window "gemini --prompt 'You are a collaboration partner. Run: collab join — then follow instructions from the collaboration dashboard.'"
+   # Step B: Identify the new pane ID
+   tmux list-panes -t collab -F '#{pane_id} #{pane_current_command}'
+
+   # Step C: Set env var, join collaboration, then launch the LLM
+   tmux send-keys -t <pane-id> "cd /path/to/project" C-m
+   tmux send-keys -t <pane-id> "export COLLAB_SESSION_NAME='codex'" C-m
+   tmux send-keys -t <pane-id> "/root/llm-router/tools/collab.sh join --name codex --role implementer" C-m
+   tmux send-keys -t <pane-id> "codex" C-m
    ```
 
-   Adapt the CLI invocation and prompt for each partner's actual CLI interface. The startup prompt must include the instruction to run `collab join`.
+   Repeat for each partner LLM (gemini, claude, etc.), adjusting the name, role, and CLI command.
 
-6. **Set `COLLAB_SESSION_NAME` env var** in each spawned pane so hooks can identify which collaboration session owns the pane:
+   **Common mistake:** Using `Enter` instead of `C-m`. Always use `C-m`. They mean the same thing in tmux but `C-m` is the reliable form.
+
+6. **Verify sessions joined** before proceeding:
 
    ```bash
-   tmux send-keys -t <pane-id> "export COLLAB_SESSION_NAME='<session-name>'" Enter
+   collab status
    ```
+
+   All partner sessions should appear in the list.
 
 7. **Open the TUI dashboard** in a dedicated pane:
 
@@ -98,10 +110,10 @@ Do not proceed until tmux is confirmed.
 
    Run this in each target pane.
 
-4. **Set env vars and install hooks** — for each connected pane:
+4. **Set env vars and install hooks** — for each connected pane (ALWAYS use `C-m` not `Enter`):
 
    ```bash
-   tmux send-keys -t <pane-id> "export COLLAB_SESSION_NAME='<session-name>'" Enter
+   tmux send-keys -t <pane-id> "export COLLAB_SESSION_NAME='<session-name>'" C-m
    ```
 
 5. **Open the TUI dashboard**:
