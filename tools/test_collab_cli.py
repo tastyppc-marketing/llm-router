@@ -51,6 +51,8 @@ def test_send_and_check():
 def test_send_and_log():
     with tempfile.TemporaryDirectory() as tmp:
         run_collab("init", cwd=tmp)
+        run_collab("join", "--name", "codex", "--role", "implementer", cwd=tmp)
+        run_collab("join", "--name", "claude-code", "--role", "planner", cwd=tmp)
         run_collab("send", "--name", "codex", "First message", cwd=tmp)
         run_collab("send", "--name", "claude-code", "Second message", cwd=tmp)
 
@@ -93,3 +95,11 @@ def test_help_prints_overview():
 def test_no_args_prints_usage():
     result = run_collab()
     assert result.returncode != 0 or "Usage" in result.stdout or "usage" in result.stderr
+
+
+def test_send_rejects_unregistered_sender():
+    with tempfile.TemporaryDirectory() as tmp:
+        run_collab("init", cwd=tmp)
+        result = run_collab("send", "--name", "ghost", "Hello", cwd=tmp)
+        assert result.returncode == 1
+        assert "not a registered session" in result.stderr

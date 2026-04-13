@@ -181,6 +181,13 @@ def cmd_send(argv: list[str]) -> int:
         print("Error: message content required.", file=sys.stderr)
         return 1
     db = open_db()
+    # Validate sender is a registered session (allow "user" and "system" as special senders)
+    if name not in ("user", "system"):
+        session = db.session_get(name)
+        if session is None:
+            db.close()
+            print(f"Error: '{name}' is not a registered session. Run 'collab join --name {name}' first.", file=sys.stderr)
+            return 1
     msg_id = db.message_send(name, content, msg_type=msg_type, reply_to=reply_to)
     db.close()
     print(f"Sent message #{msg_id} ({msg_type})")
