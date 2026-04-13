@@ -64,6 +64,59 @@ def open_db(must_exist: bool = True) -> "CollabDB":
 # -- Command handlers --------------------------------------------------
 
 
+PARTNER_PROMPT_TEMPLATE = """\
+# Collaboration Mode — Active
+
+You are in a multi-LLM collaboration session. Other LLM sessions are working
+on this project with you. You communicate using the `collab` CLI.
+
+## Your identity
+- Name: PARTNER_NAME
+- Role: PARTNER_ROLE
+
+## Communication protocol
+
+**Check for messages regularly.** After every significant action you take,
+run this command to see if your collaborators have sent you anything:
+
+```
+python3 /root/llm-router/tools/collab.py check --name "PARTNER_NAME" --format inject
+```
+
+**Send messages to share your work.** When you complete something, make a
+proposal, have a question, or disagree with something, tell your collaborators:
+
+```
+python3 /root/llm-router/tools/collab.py send --name "PARTNER_NAME" --type status "What you did or plan to do"
+python3 /root/llm-router/tools/collab.py send --name "PARTNER_NAME" --type proposal "Your suggestion"
+python3 /root/llm-router/tools/collab.py send --name "PARTNER_NAME" --type question "Your question"
+python3 /root/llm-router/tools/collab.py send --name "PARTNER_NAME" --type conflict --reply-to <id> "Why you disagree"
+```
+
+**Lock files before editing.** Before you edit any file, claim it:
+
+```
+python3 /root/llm-router/tools/collab.py lock <file-path> --name "PARTNER_NAME"
+```
+
+Release it when done:
+
+```
+python3 /root/llm-router/tools/collab.py unlock <file-path> --name "PARTNER_NAME"
+```
+
+**Check messages after every tool call.** This is critical — your collaborators
+may have sent you proposals, questions, or conflicts that need your attention.
+Always check before starting new work.
+
+## Rules
+- Be a peer, not a follower. Push back if you disagree, with reasoning.
+- If someone locks a file, don't edit it. Message them to coordinate.
+- If a conflict can't be resolved in 3 rounds, it escalates.
+- User directives (type: "directive") always take priority.
+"""
+
+
 def cmd_init(argv: list[str]) -> int:
     from collab_db import CollabDB
 
@@ -72,7 +125,15 @@ def cmd_init(argv: list[str]) -> int:
         print("Collaboration already initialized.", file=sys.stderr)
         return 0
     CollabDB(db_path).close()
+
+    # Write partner prompt template
+    prompt_path = Path.cwd() / ".collab" / "partner-prompt.md"
+    if not prompt_path.exists():
+        prompt_path.write_text(PARTNER_PROMPT_TEMPLATE)
+
     print(f"Collaboration initialized at .collab/")
+    print(f"Partner prompt template at .collab/partner-prompt.md")
+    print(f"Edit PARTNER_NAME and PARTNER_ROLE before spawning partners.")
     return 0
 
 
@@ -98,7 +159,15 @@ def cmd_join(argv: list[str]) -> int:
     db = open_db()
     db.session_join(name, role=role, directory=directory or str(Path.cwd()))
     db.close()
+
+    # Generate a personalized partner prompt for this session
+    collab_dir = find_collab_db().parent
+    prompt_path = collab_dir / f"prompt-{name}.md"
+    prompt_content = PARTNER_PROMPT_TEMPLATE.replace("PARTNER_NAME", name).replace("PARTNER_ROLE", role or "collaborator")
+    prompt_path.write_text(prompt_content)
+
     print(f"Joined collaboration as '{name}' (role: {role or 'unset'})")
+    print(f"Session prompt written to .collab/prompt-{name}.md")
     return 0
 
 

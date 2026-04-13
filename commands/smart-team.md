@@ -47,16 +47,71 @@ Do not proceed until tmux is confirmed.
 3. **Initialize the collaboration workspace** — run from the project root:
 
    ```bash
-   collab init
+   python3 /root/llm-router/tools/collab.py init
    ```
 
 4. **Join the current session** to the collaboration:
 
    ```bash
-   collab join
+   python3 /root/llm-router/tools/collab.py join --name "<your-session-name>" --role "<your-role>"
+   export COLLAB_SESSION_NAME="<your-session-name>"
    ```
 
-5. **Spawn each partner session** in a new tmux pane. For every partner LLM, open an empty pane first, then send commands into it. Do NOT pass commands directly to `tmux split-window` — interactive CLIs like codex and gemini need to be started via `send-keys` so you can control the sequence.
+5. **Write collaboration instructions** for partner sessions. Create a file at `.collab/partner-prompt.md` in the project root with the following content (adapt the project description, partner name, and role for each partner):
+
+   ```markdown
+   # Collaboration Mode — Active
+
+   You are in a multi-LLM collaboration session. Other LLM sessions are working
+   on this project with you. You communicate using the `collab` CLI.
+
+   ## Your identity
+   - Name: <partner-name>
+   - Role: <partner-role>
+
+   ## Communication protocol
+
+   **Check for messages regularly.** After every significant action you take,
+   run this command to see if your collaborators have sent you anything:
+
+   ```
+   python3 /root/llm-router/tools/collab.py check --name "<partner-name>" --format inject
+   ```
+
+   **Send messages to share your work.** When you complete something, make a
+   proposal, have a question, or disagree with something, tell your collaborators:
+
+   ```
+   python3 /root/llm-router/tools/collab.py send --name "<partner-name>" --type status "What you did or plan to do"
+   python3 /root/llm-router/tools/collab.py send --name "<partner-name>" --type proposal "Your suggestion"
+   python3 /root/llm-router/tools/collab.py send --name "<partner-name>" --type question "Your question"
+   python3 /root/llm-router/tools/collab.py send --name "<partner-name>" --type conflict --reply-to <id> "Why you disagree"
+   ```
+
+   **Lock files before editing.** Before you edit any file, claim it:
+
+   ```
+   python3 /root/llm-router/tools/collab.py lock <file-path> --name "<partner-name>"
+   ```
+
+   Release it when done:
+
+   ```
+   python3 /root/llm-router/tools/collab.py unlock <file-path> --name "<partner-name>"
+   ```
+
+   **Check messages after every tool call.** This is critical — your collaborators
+   may have sent you proposals, questions, or conflicts that need your attention.
+   Always check before starting new work.
+
+   ## Rules
+   - Be a peer, not a follower. Push back if you disagree, with reasoning.
+   - If someone locks a file, don't edit it. Message them to coordinate.
+   - If a conflict can't be resolved in 3 rounds, it escalates.
+   - User directives (type: "directive") always take priority.
+   ```
+
+6. **Spawn each partner session** in a new tmux pane. For every partner LLM, open an empty pane, set up the environment, then launch the LLM with the collaboration prompt.
 
    **CRITICAL: Every `tmux send-keys` command MUST end with `C-m` to press Enter.** Without `C-m`, the text is typed but never executed.
 
@@ -67,30 +122,48 @@ Do not proceed until tmux is confirmed.
    # Step B: Identify the new pane ID
    tmux list-panes -t collab -F '#{pane_id} #{pane_current_command}'
 
-   # Step C: Set env var, join collaboration, then launch the LLM
+   # Step C: Set env var and join collaboration
    tmux send-keys -t <pane-id> "cd /path/to/project" C-m
    tmux send-keys -t <pane-id> "export COLLAB_SESSION_NAME='codex'" C-m
-   tmux send-keys -t <pane-id> "/root/llm-router/tools/collab.sh join --name codex --role implementer" C-m
-   tmux send-keys -t <pane-id> "codex" C-m
+   tmux send-keys -t <pane-id> "python3 /root/llm-router/tools/collab.py join --name codex --role implementer" C-m
+
+   # Step D: Launch the LLM with the collaboration prompt
+   # For Claude Code:
+   tmux send-keys -t <pane-id> "claude --system-prompt .collab/partner-prompt.md" C-m
+   # For Codex (pass prompt via -p for initial instruction, then interactive):
+   tmux send-keys -t <pane-id> "codex --full-auto" C-m
+   tmux send-keys -t <pane-id> "$(cat .collab/partner-prompt.md | head -5) — Read .collab/partner-prompt.md for your full collaboration instructions, then check for messages with: python3 /root/llm-router/tools/collab.py check --name codex --format inject" C-m
+   # For Gemini:
+   tmux send-keys -t <pane-id> "gemini" C-m
+   tmux send-keys -t <pane-id> "Read .collab/partner-prompt.md for your collaboration instructions, then check for messages with: python3 /root/llm-router/tools/collab.py check --name gemini --format inject" C-m
    ```
 
-   Repeat for each partner LLM (gemini, claude, etc.), adjusting the name, role, and CLI command.
+   Adapt the launch sequence for each LLM's CLI interface. The key requirement: **the LLM must know to read `.collab/partner-prompt.md` and start checking messages.**
 
-   **Common mistake:** Using `Enter` instead of `C-m`. Always use `C-m`. They mean the same thing in tmux but `C-m` is the reliable form.
+   **Common mistake:** Using `Enter` instead of `C-m`. Always use `C-m`.
 
-6. **Verify sessions joined** before proceeding:
+7. **Verify sessions joined** before proceeding:
 
    ```bash
-   collab status
+   python3 /root/llm-router/tools/collab.py status
    ```
 
    All partner sessions should appear in the list.
 
-7. **Open the TUI dashboard** in a dedicated pane:
+8. **Open the TUI dashboard** in a dedicated pane:
 
    ```bash
-   tmux split-window -v "collab ui"
+   tmux split-window -v -t collab
+   tmux send-keys -t collab "cd /path/to/project && python3 /root/llm-router/tools/collab_ui.py" C-m
    ```
+
+9. **Send the first message** to kick off the collaboration. From your session, send a message that tells all partners what to work on:
+
+   ```bash
+   python3 /root/llm-router/tools/collab.py send --name "<your-name>" --type proposal "Here's what we're building: <description>. <partner-1>, start with X. <partner-2>, start with Y."
+   ```
+
+   Partners will see this on their next `collab check`.
 
 ### Hot connect flow (`--collaborate --connect`)
 
